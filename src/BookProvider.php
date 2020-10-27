@@ -122,7 +122,11 @@ class BookProvider {
 				}
 			}
 			$chapterTitles = $parser->getFullChaptersList( $title, $pageList, $namespaces );
+			//unset($chapterTitles[0]); //Remove talk pages... add logic to remove talk pages from chapterTitles
+
 			$chapters = $this->getPages( $chapterTitles );
+
+			// Generate all the chapters
 			foreach ( $chapters as $chapter_key => $chapter ) {
 				$parser = new PageParser( $chapter->content );
 				if ( $parser->metadataIsSet( 'ws-noinclude' ) ) {

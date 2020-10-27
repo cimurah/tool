@@ -27,7 +27,7 @@ class Api {
 	private const REQUEST_TIMEOUT = 60; // in seconds
 
 	public $lang = '';
-	public $domainName = '';
+	private $domainName = '';
 
 	/**
 	 * @var ClientInterface
@@ -49,15 +49,13 @@ class Api {
 	 * @param string $domainName
 	 * @param ClientInterface $client
 	 */
-	public function __construct( $lang = '', $domainName = '', ClientInterface $client = null ) {
+	public function __construct( $lang = '', ClientInterface $client = null ) {
 		if ( $lang == '' ) {
 			$lang = self::getHttpLang();
 		}
 		$this->lang = $lang;
 
-		if ( $domainName != '' ) {
-			$this->domainName = $domainName;
-		} elseif ( $this->lang == 'www' || $this->lang == '' ) {
+		if ( $this->lang == 'www' || $this->lang == '' ) {
 			$this->domainName = 'wikisource.org';
 			$this->lang = '';
 		} elseif ( $this->lang == 'wl' || $this->lang == 'wikilivres' ) {
@@ -139,7 +137,7 @@ class Api {
 		$params += [ 'action' => 'query', 'format' => 'json' ];
 
 		return $this->getAsync(
-			'https://' . $this->domainName . '/w/api.php',
+			'https://' . $this->getDomainName() . '/w/api.php',
 			[ 'query' => $params ]
 		)->then(
 			function ( $result ) {
@@ -183,30 +181,15 @@ class Api {
 	 * @return PromiseInterface promise with the content of a page
 	 */
 	public function getPageAsync( $title ) {
-		return $this->queryAsync( [
-			'titles' => $title,
-			'prop' => 'revisions',
-			'rvprop' => 'content',
-			'rvparse' => true
-		] )->then( function ( array $result ) {
-			return $this->parseGetPageResponse( $result );
-		} );
-	}
-
-	private function parseGetPageResponse( $response ) {
-		$pages = $response['query']['pages'] ?? [];
-		foreach ( $pages as $page ) {
-			$title = $page['title'];
-			if ( isset( $page['revisions'] ) ) {
-				foreach ( $page['revisions'] as $revision ) {
-					return Util::getXhtmlFromContent( $this->lang, $revision['*'], $title );
-				}
-			}
-		}
-		if ( !isset( $title ) ) {
-			throw new HttpException( 500, 'No page information found in response' );
-		}
-		throw new NotFoundHttpException( "Page revision not found for: $title" );
+		$url = 'https://' . $this->getDomainName() . '/api/rest_v1/page/html/' . urlencode( $title );
+		return $this->getAsync( $url )
+					->then( function ( string $result ) {
+						if ( $result != '' ) {
+							$result = preg_replace( '#<\!--(.+)-->#isU', '', $result );
+						}
+						return '<?xml version="1.0" encoding="UTF-8" ?>' . $result;
+					}
+		);
 	}
 
 	/**
@@ -215,6 +198,13 @@ class Api {
 	 */
 	public function get( $url ) {
 		return $this->client->get( $url )->getBody()->getContents();
+	}
+
+	/**
+	 * @return string the domain name of the wiki being used
+	 */
+	public function getDomainName() {
+		return $this->domainName;
 	}
 
 	/**

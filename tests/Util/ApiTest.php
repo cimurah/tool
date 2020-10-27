@@ -40,7 +40,7 @@ class ApiTest extends TestCase {
 	}
 
 	private function apiWithResponse( $status, $header, $body ) {
-		return new Api( 'en', '', $this->mockClient( [ new Response( $status, $header, $body ) ] ) );
+		return new Api( 'en', $this->mockClient( [ new Response( $status, $header, $body ) ] ) );
 	}
 
 	private function mockClient( $responses ) {
